@@ -16,8 +16,10 @@ func (wp *WorkerPool) startWorkers() {
 	}
 }
 
-func (wp *WorkerPool) steal() task {
-	for _, w := range wp.workers {
+func (wp *WorkerPool) steal() (task, int) {
+	fmt.Println("stealing got called", len(wp.workers))
+	for index, w := range wp.workers {
+		fmt.Println("stealing from worker ", index, w)
 		if len(w.dq.deque) == 0 {
 			continue
 		}
@@ -26,9 +28,9 @@ func (wp *WorkerPool) steal() task {
 			fmt.Println(err)
 			continue
 		}
-		return task
+		return task, index
 	}
-	return nil
+	return nil, -1
 }
 func (wp *WorkerPool) stopWorkers() {
 	for _, w := range wp.workers {
@@ -39,6 +41,8 @@ func (wp *WorkerPool) submitTask() {
 
 	random := rand.Intn(len(wp.workers))
 	sleep_random := rand.Intn(len(wp.workers) * 2)
+
+	fmt.Printf("task assigned to worker %d \n", random)
 	wp.workers[random].dq.pushBack(func() {
 		time.Sleep(time.Duration(sleep_random) * time.Second)
 		fmt.Println("task executed by worker ", random)
@@ -53,10 +57,14 @@ type worker struct {
 
 func (w *worker) start() {
 	go func() {
-		for w.active == true {
+
+		time.Sleep(1 * time.Second)
+		fmt.Println("worker started")
+		for w.active {
 			if len(w.dq.deque) == 0 {
-				task := w.workerPool.steal()
+				task, workerIndex := w.workerPool.steal()
 				if task != nil {
+					fmt.Printf("task stolen by worker %d \n", workerIndex)
 					task()
 					continue
 				}
@@ -64,6 +72,9 @@ func (w *worker) start() {
 			task, err := w.dq.popBack()
 			if err != nil {
 				fmt.Println(err)
+				continue
+			}
+			if task == nil {
 				continue
 			}
 			task()
