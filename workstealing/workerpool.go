@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"math/rand"
+	"time"
+)
 
 type WorkerPool struct {
 	workers []*worker
@@ -17,7 +21,7 @@ func (wp *WorkerPool) steal() task {
 		if len(w.dq.deque) == 0 {
 			continue
 		}
-		task, err := w.dq.popBack()
+		task, err := w.dq.popFront()
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -31,6 +35,15 @@ func (wp *WorkerPool) stopWorkers() {
 		w.stop()
 	}
 }
+func (wp *WorkerPool) submitTask() {
+
+	random := rand.Intn(len(wp.workers))
+	sleep_random := rand.Intn(len(wp.workers) * 2)
+	wp.workers[random].dq.pushBack(func() {
+		time.Sleep(time.Duration(sleep_random) * time.Second)
+		fmt.Println("task executed by worker ", random)
+	})
+}
 
 type worker struct {
 	dq         *deque
@@ -42,7 +55,6 @@ func (w *worker) start() {
 	go func() {
 		for w.active == true {
 			if len(w.dq.deque) == 0 {
-				// steal other worker tasks
 				task := w.workerPool.steal()
 				if task != nil {
 					task()
